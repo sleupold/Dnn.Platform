@@ -211,7 +211,8 @@ namespace DotNetNuke.Services.FileSystem
 
         private IEnumerable<IFileInfo> SearchFiles(IFolderInfo folder, Regex regex, bool recursive)
         {
-            var fileCollection = CBO.Instance.FillCollection<FileInfo>(DataProvider.Instance().GetFiles(folder.FolderID));
+            var fileCollection =
+                CBO.Instance.FillCollection<FileInfo>(DataProvider.Instance().GetFiles(folder.FolderID, false, false));
 
             var files = (from f in fileCollection where regex.IsMatch(f.FileName) select f).Cast<IFileInfo>().ToList();
 
@@ -2244,7 +2245,7 @@ namespace DotNetNuke.Services.FileSystem
         /// <param name="newFolderPath">The new folder path.</param>
         /// <returns>The moved folder.</returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("Deprecated in DNN 7.1.  It has been replaced by FolderManager.Instance.MoveFolder(IFolderInfo folder, IFolderInfo destinationFolder) ")]
+        [Obsolete("Deprecated in DNN 7.1.  It has been replaced by FolderManager.Instance.MoveFolder(IFolderInfo folder, IFolderInfo destinationFolder) . Scheduled removal in v10.0.0.")]
         public virtual IFolderInfo MoveFolder(IFolderInfo folder, string newFolderPath)
         {
             Requires.NotNull("folder", folder);

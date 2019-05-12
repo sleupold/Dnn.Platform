@@ -1,5 +1,15 @@
-#tool nuget:?package=NUnit.ConsoleRunner&version=3.4.0
+#addin nuget:?package=Cake.XdtTransform&version=0.16.0
+#addin nuget:?package=Cake.FileHelpers&version=3.1.0
+#addin nuget:?package=Cake.Powershell&version=0.4.7
+
+#tool "nuget:?package=GitVersion.CommandLine&version=4.0.0"
+#tool "nuget:?package=Microsoft.TestPlatform&version=15.7.0"
+#tool "nuget:?package=NUnitTestAdapter&version=2.1.1"
+
+#load "local:?path=Build/cake/version.cake"
 #load "local:?path=Build/cake/create-database.cake"
+#load "local:?path=Build/cake/unit-tests.cake"
+
 //////////////////////////////////////////////////////////////////////
 // ARGUMENTS
 //////////////////////////////////////////////////////////////////////
@@ -8,7 +18,6 @@ var target = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
 
 var createCommunityPackages = "./Build/BuildScripts/CreateCommunityPackages.build";
-var buildNumber = Argument("buildNumber", "9.2.2");
 
 var targetBranchCk = Argument("CkBranch", "development");
 var targetBranchCdf = Argument("CdfBranch", "dnn");
@@ -52,14 +61,7 @@ Task("Restore-NuGet-Packages")
 
 Task("Build")
     .IsDependentOn("CleanArtifacts")
-    .IsDependentOn("CreateSource")
-
 	.IsDependentOn("CompileSource")
-	
-	.IsDependentOn("CreateInstall")
-	.IsDependentOn("CreateUpgrade")
-	.IsDependentOn("CreateDeploy")
-    .IsDependentOn("CreateSymbols")
     
     .Does(() =>
 	{
@@ -69,9 +71,7 @@ Task("Build")
 Task("BuildWithDatabase")
     .IsDependentOn("CleanArtifacts")
     .IsDependentOn("CreateSource")
-
 	.IsDependentOn("CompileSource")
-	
 	.IsDependentOn("CreateInstall")
 	.IsDependentOn("CreateUpgrade")
 	.IsDependentOn("CreateDeploy")
@@ -85,10 +85,8 @@ Task("BuildWithDatabase")
 Task("BuildInstallUpgradeOnly")
     .IsDependentOn("CleanArtifacts")
 	.IsDependentOn("CompileSource")
-	
 	.IsDependentOn("CreateInstall")
 	.IsDependentOn("CreateUpgrade")
-
     .Does(() =>
 	{
 
@@ -96,30 +94,28 @@ Task("BuildInstallUpgradeOnly")
 
 Task("BuildAll")
     .IsDependentOn("CleanArtifacts")
-    .IsDependentOn("CreateSource")
 	.IsDependentOn("CompileSource")
-
 	.IsDependentOn("ExternalExtensions")
-
 	.IsDependentOn("CreateInstall")
 	.IsDependentOn("CreateUpgrade")
     .IsDependentOn("CreateDeploy")
 	.IsDependentOn("CreateSymbols")
     .IsDependentOn("CreateNugetPackages")
-    
+    .IsDependentOn("CreateSource")
     .Does(() =>
 	{
 
 	});
 
 Task("CompileSource")
+    .IsDependentOn("UpdateDnnManifests")
 	.IsDependentOn("Restore-NuGet-Packages")
 	.Does(() =>
 	{
 		MSBuild(createCommunityPackages, c =>
 		{
 			c.Configuration = configuration;
-			c.WithProperty("BUILD_NUMBER", buildNumber);
+			c.WithProperty("BUILD_NUMBER", GetProductVersion());
 			c.Targets.Add("CompileSource");
 		});
 	});
@@ -133,7 +129,7 @@ Task("CreateInstall")
 		MSBuild(createCommunityPackages, c =>
 		{
 			c.Configuration = configuration;
-			c.WithProperty("BUILD_NUMBER", buildNumber);
+			c.WithProperty("BUILD_NUMBER", GetProductVersion());
 			c.Targets.Add("CreateInstall");
 		});
 	});
@@ -147,7 +143,7 @@ Task("CreateUpgrade")
 		MSBuild(createCommunityPackages, c =>
 		{
 			c.Configuration = configuration;
-			c.WithProperty("BUILD_NUMBER", buildNumber);
+			c.WithProperty("BUILD_NUMBER", GetProductVersion());
 			c.Targets.Add("CreateUpgrade");
 		});
 	});
@@ -161,7 +157,7 @@ Task("CreateSymbols")
 		MSBuild(createCommunityPackages, c =>
 		{
 			c.Configuration = configuration;
-			c.WithProperty("BUILD_NUMBER", buildNumber);
+			c.WithProperty("BUILD_NUMBER", GetProductVersion());
 			c.Targets.Add("CreateSymbols");
 		});
 	});   
@@ -169,23 +165,18 @@ Task("CreateSymbols")
     
 
 Task("CreateSource")
+    .IsDependentOn("UpdateDnnManifests")
 	.Does(() =>
 	{
 		
 		CleanDirectory("./src/Projects/");
-	
-		using (var process = StartAndReturnProcess("git", new ProcessSettings{Arguments = "clean -xdf -e tools/ -e .vs/"}))
-		{
-			process.WaitForExit();
-			Information("Git Clean Exit code: {0}", process.GetExitCode());
-		};
-        
+
         CreateDirectory("./Artifacts");
 	
 		MSBuild(createCommunityPackages, c =>
 		{
 			c.Configuration = configuration;
-			c.WithProperty("BUILD_NUMBER", buildNumber);
+			c.WithProperty("BUILD_NUMBER", GetProductVersion());
 			c.Targets.Add("CreateSource");
 		});
 	});
@@ -199,7 +190,7 @@ Task("CreateDeploy")
 		MSBuild(createCommunityPackages, c =>
 		{
 			c.Configuration = configuration;
-			c.WithProperty("BUILD_NUMBER", buildNumber);
+			c.WithProperty("BUILD_NUMBER", GetProductVersion());
 			c.Targets.Add("CreateDeploy");
 		});
 	});
@@ -216,7 +207,7 @@ Task("CreateNugetPackages")
 		//basic nuget package configuration
 		var nuGetPackSettings = new NuGetPackSettings
 		{
-			Version = buildNumber,
+			Version = GetBuildNumber(),
 			OutputDirectory = @"./Artifacts/",
 			IncludeReferencedProjects = true,
 			Properties = new Dictionary<string, string>
