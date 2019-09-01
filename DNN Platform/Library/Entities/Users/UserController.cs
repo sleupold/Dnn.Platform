@@ -1203,6 +1203,7 @@ namespace DotNetNuke.Entities.Users
         /// <param name="portalId">The Id of the Portal</param>
         /// <returns>An ArrayList of UserInfo objects</returns>
         /// -----------------------------------------------------------------------------
+        [Obsolete("Support for users online was removed in 8.x, other solutions exist outside of the DNN Platform.  Scheduled removal in v11.0.0.")]
         public static ArrayList GetOnlineUsers(int portalId)
         {
             return MembershipProvider.Instance().GetOnlineUsers(GetEffectivePortalId(portalId));
@@ -1397,6 +1398,10 @@ namespace DotNetNuke.Entities.Users
                 case UserCreateStatus.DuplicateProviderUserKey:
                 case UserCreateStatus.InvalidProviderUserKey:
                     return Localization.GetString("RegError");
+                case UserCreateStatus.InvalidFirstName:
+                    return Localization.GetString("InvalidFirstName");
+                case UserCreateStatus.InvalidLastName:
+                    return Localization.GetString("InvalidLastName");
                 default:
                     throw new ArgumentException("Unknown UserCreateStatus value encountered", "userRegistrationStatus");
             }
